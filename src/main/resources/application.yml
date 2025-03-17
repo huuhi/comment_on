@@ -1,0 +1,33 @@
+server:
+  port: 8081
+spring:
+  application:
+    name: hmdp
+  datasource:
+    driver-class-name: com.mysql.cj.jdbc.Driver
+    url: 'jdbc:mysql://127.0.0.1:3306/comment_on?useSSL=false&serverTimezone=UTC'
+    username: root
+    password: ${DATA_PASSWORD}
+  data:
+    redis:
+      host: localhost
+      port: 6379
+      lettuce:
+        pool:
+          max-active: 10
+          max-idle: 10
+          min-idle: 1
+          time-between-eviction-runs: 10s
+  jackson:
+    default-property-inclusion: non_null
+
+
+logging:
+  level:
+    com.baomidou.mybatisplus: debug
+    zhijianhu.comment: debug
+mybatis-plus:
+  type-aliases-package: zhijianhu.comment.domain
+  configuration:
+    map-underscore-to-camel-case: true
+  mapper-locations: classpath*:/mapper/**/*.xml
