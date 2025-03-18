@@ -3,6 +3,7 @@ package zhijianhu.comment.service;
 
 import com.baomidou.mybatisplus.extension.service.IService;
 import zhijianhu.comment.domain.ShopType;
+import zhijianhu.comment.dto.Result;
 
 /**
  * <p>
@@ -13,5 +14,7 @@ import zhijianhu.comment.domain.ShopType;
  * @since 2021-12-22
  */
 public interface IShopTypeService extends IService<ShopType> {
+
+    Result getShopTypeList();
 
 }

@@ -3,6 +3,7 @@ package zhijianhu.comment.service;
 
 import com.baomidou.mybatisplus.extension.service.IService;
 import zhijianhu.comment.domain.Shop;
+import zhijianhu.comment.dto.Result;
 
 /**
  * <p>
@@ -14,4 +15,7 @@ import zhijianhu.comment.domain.Shop;
  */
 public interface IShopService extends IService<Shop> {
 
+    Result getShop(Long id);
+
+    Result updateShopAndDelCache(Shop shop);
 }
