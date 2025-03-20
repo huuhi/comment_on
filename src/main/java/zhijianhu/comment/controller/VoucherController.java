@@ -38,7 +38,10 @@ public class VoucherController {
      * @param voucher 优惠券信息，包含秒杀信息
      * @return 优惠券id
      */
-    @PostMapping("seckill")
+    @PostMapping("/seckill")
+//    抢购是写死的  限时抢购是我们添加的券
+//    需要把时间设置成我们的范围   点击限时抢购就会弹出功能未完成
+//    401一般是你路径写错 拦截器拦住 或者可能是请求头auth没写（不过我没写也能成功）
     public Result addSeckillVoucher(@RequestBody Voucher voucher) {
         voucherService.addSeckillVoucher(voucher);
         return Result.ok(voucher.getId());

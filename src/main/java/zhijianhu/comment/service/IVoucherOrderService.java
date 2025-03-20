@@ -3,6 +3,7 @@ package zhijianhu.comment.service;
 
 import com.baomidou.mybatisplus.extension.service.IService;
 import zhijianhu.comment.domain.VoucherOrder;
+import zhijianhu.comment.dto.Result;
 
 /**
  * <p>
@@ -14,4 +15,7 @@ import zhijianhu.comment.domain.VoucherOrder;
  */
 public interface IVoucherOrderService extends IService<VoucherOrder> {
 
+    Result createVoucherOrder(Long voucherId,Long userId);
+
+    Result seckillVoucher(Long voucherId);
 }

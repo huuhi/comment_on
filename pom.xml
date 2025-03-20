@@ -79,6 +79,10 @@
             <version>1.18.30</version>
             <optional>true</optional>
         </dependency>
+        <dependency>
+            <groupId>org.aspectj</groupId>
+            <artifactId>aspectjweaver</artifactId>
+        </dependency>
     </dependencies>
 
     <build>

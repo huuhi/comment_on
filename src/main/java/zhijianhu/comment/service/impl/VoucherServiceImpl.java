@@ -3,6 +3,7 @@ package zhijianhu.comment.service.impl;
 
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import jakarta.annotation.Resource;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import zhijianhu.comment.domain.SeckillVoucher;
@@ -12,6 +13,7 @@ import zhijianhu.comment.mapper.TbVoucherMapper;
 import zhijianhu.comment.service.ISeckillVoucherService;
 import zhijianhu.comment.service.IVoucherService;
 
+import java.time.LocalDateTime;
 import java.util.List;
 
 /**
@@ -23,6 +25,7 @@ import java.util.List;
  * @since 2021-12-22
  */
 @Service
+@Slf4j
 public class VoucherServiceImpl extends ServiceImpl<TbVoucherMapper, Voucher> implements IVoucherService {
 
     @Resource

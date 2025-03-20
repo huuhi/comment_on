@@ -1,7 +1,6 @@
 package zhijianhu.comment.service.impl;
 
 
-import cn.hutool.core.util.BooleanUtil;
 import cn.hutool.core.util.RandomUtil;
 import cn.hutool.core.util.StrUtil;
 import cn.hutool.json.JSONUtil;
@@ -16,7 +15,10 @@ import zhijianhu.comment.domain.Shop;
 import zhijianhu.comment.dto.Result;
 import zhijianhu.comment.mapper.TbShopMapper;
 import zhijianhu.comment.service.IShopService;
+import zhijianhu.comment.util.RedisData;
+import zhijianhu.comment.util.RedisUtils;
 
+import java.time.LocalDateTime;
 import java.util.Collections;
 import java.util.UUID;
 import java.util.concurrent.TimeUnit;
@@ -36,25 +38,38 @@ import static zhijianhu.comment.util.RedisConstants.*;
 public class ShopServiceImpl extends ServiceImpl<TbShopMapper, Shop> implements IShopService {
     @Resource
     private StringRedisTemplate stringRedisTemplate;
+    @Resource
+    private RedisUtils redisUtils;
+
 
     @Override
     public Result getShop(Long id) {
-        Shop shop = queryWithMutex(id);
+//         解决缓存穿透问题
+        Shop shop =redisUtils.queryWithPassThrough(
+                CACHE_SHOP_KEY,id,Shop.class,
+                this::getById,CACHE_SHOP_TTL, TimeUnit.MINUTES
+        );
+
+//        互斥锁解决缓存击穿问题
+//        Shop shop = queryWithMutex(id);
+//         逻辑删除解决缓存击穿问题
+//        Shop shop=redisUtils.queryWithLogicalExpire(
+//                CACHE_SHOP_KEY,id,Shop.class,
+//                this::getById,CACHE_SHOP_TTL, TimeUnit.MINUTES,LOCK_SHOP_KEY
+//        );
+
         if(shop==null){
             return Result.fail("商铺信息不存在！");
         }
         return Result.ok(shop);
     }
+//    互斥锁解决缓存击穿问题
     private Shop queryWithMutex(Long id) {
          //      先查看是否有缓存,有则直接返回
         String key= CACHE_SHOP_KEY+id;
-        String s = stringRedisTemplate.opsForValue().get(key);
-        if(StrUtil.isNotBlank(s)){
-            return  JSONUtil.toBean(s, Shop.class);
-        }
-
+        Shop s=getShopByRedis(key);
         if(s!=null){
-            return null;
+            return s;
         }
 //      实现缓存重构
 //       1.获取互斥锁
@@ -76,21 +91,18 @@ public class ShopServiceImpl extends ServiceImpl<TbShopMapper, Shop> implements 
         }
 //        Double Check 再检查一下缓存存不存在
         if(lock){
-            String s2 = stringRedisTemplate.opsForValue().get(key);
-            if(StrUtil.isNotBlank(s2)){
-                return  JSONUtil.toBean(s2, Shop.class);
-            }
+            Shop shop1 = getShopByRedis(key);
+            if(shop1!=null) return shop1;
         }else{
             try {
                 Thread.sleep(100); // 等待一段时间
             } catch (InterruptedException e) {
                 throw new RuntimeException(e);
             }
-            String s3 = stringRedisTemplate.opsForValue().get(key);
-            if (StrUtil.isNotBlank(s3)) {
-                return JSONUtil.toBean(s3, Shop.class);
-            }
+            Shop shopByRedis = getShopByRedis(key);
+            if(shopByRedis!=null) return shopByRedis;
             throw new RuntimeException("获取锁失败，请稍后重试");
+
         }
         Shop shop=null;
         // 2.判断是否获取锁成功 ->如果成功需要判断有没有缓存，失败则休眠再次尝试
@@ -113,34 +125,18 @@ public class ShopServiceImpl extends ServiceImpl<TbShopMapper, Shop> implements 
         }
         return  shop;
     }
-
-
-    private Shop queryWithPassThrough(Long id){
-        //      先查看是否有缓存,有则直接返回
-        String key= CACHE_SHOP_KEY+id;
+//    逻辑过期解决缓存击穿问题
+    private Shop getShopByRedis(String key){
         String s = stringRedisTemplate.opsForValue().get(key);
         if(StrUtil.isNotBlank(s)){
-            return  JSONUtil.toBean(s, Shop.class);
+            return JSONUtil.toBean(s,Shop.class);
         }
-        if(s!=null){
-            return null;
-        }
-//        没有则查询数据库
-        Shop shop = getById(id);
-        if(shop==null){
-            stringRedisTemplate.opsForValue().set(key,"",CACHE_NULL_TTL, TimeUnit.MINUTES);
-            return null;
-        }
-//       商铺详细信息过期时间为30分钟
-//        随机一个随机的过期时间，防止缓存雪崩
-        Integer random= RandomUtil.randomInt(1,10);
-        stringRedisTemplate.opsForValue().set(key,JSONUtil.toJsonStr(shop),CACHE_SHOP_TTL+random, TimeUnit.MINUTES);
-        return  shop;
+        return null;
     }
 
 
     private String generateLockValue() {
-        return UUID.randomUUID().toString() + "-" + Thread.currentThread().getId();
+        return UUID.randomUUID() + "-" + Thread.currentThread().getId();
     }
 
     private Boolean lock(String key) {
@@ -153,20 +149,7 @@ public class ShopServiceImpl extends ServiceImpl<TbShopMapper, Shop> implements 
     }
 
     private void unlock(String key) {
-        String lockValue = stringRedisTemplate.opsForValue().get(key);
-        String currentLockValue = generateLockValue();
-        // 使用 Lua 脚本保证原子性
-        String script =
-            "if redis.call('get', KEYS[1]) == ARGV[1] then " +
-            "   return redis.call('del', KEYS[1]) " +
-            "else " +
-            "   return 0 " +
-            "end";
-        stringRedisTemplate.execute(
-            new DefaultRedisScript<>(script, Long.class),
-            Collections.singletonList(key),
-            currentLockValue
-        );
+        stringRedisTemplate.delete(key);
     }
 
     @Override
