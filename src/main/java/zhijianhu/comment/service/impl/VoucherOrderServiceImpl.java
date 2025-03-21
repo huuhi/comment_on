@@ -3,6 +3,8 @@ package zhijianhu.comment.service.impl;
 
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import lombok.extern.slf4j.Slf4j;
+import org.redisson.api.RLock;
+import org.redisson.api.RedissonClient;
 import org.springframework.aop.framework.AopContext;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Service;
@@ -14,10 +16,13 @@ import zhijianhu.comment.mapper.TbVoucherOrderMapper;
 import zhijianhu.comment.service.ISeckillVoucherService;
 import zhijianhu.comment.service.IVoucherOrderService;
 import zhijianhu.comment.util.RedisIdWorker;
+import zhijianhu.comment.util.SimpleRedisLock;
 import zhijianhu.comment.util.UserHolder;
 
 import java.time.LocalDateTime;
+import java.util.concurrent.TimeUnit;
 
+import static zhijianhu.comment.util.RedisConstants.LOCK_ORDER_TTL;
 import static zhijianhu.comment.util.RedisConstants.SECKILL_STOCK_KEY;
 
 /**
@@ -33,9 +38,11 @@ import static zhijianhu.comment.util.RedisConstants.SECKILL_STOCK_KEY;
 public class VoucherOrderServiceImpl extends ServiceImpl<TbVoucherOrderMapper, VoucherOrder> implements IVoucherOrderService {
     private final ISeckillVoucherService seckillVoucherService;
     private final StringRedisTemplate stringRedisTemplate;
-    public VoucherOrderServiceImpl(ISeckillVoucherService seckillVoucherService,StringRedisTemplate stringRedisTemplate) {
+    private final RedissonClient redissonClient;;
+    public VoucherOrderServiceImpl(ISeckillVoucherService seckillVoucherService, StringRedisTemplate stringRedisTemplate, RedissonClient redissonClient) {
         this.seckillVoucherService = seckillVoucherService;
         this.stringRedisTemplate = stringRedisTemplate;
+        this.redissonClient = redissonClient;
     }
 
     @Override
@@ -54,10 +61,21 @@ public class VoucherOrderServiceImpl extends ServiceImpl<TbVoucherOrderMapper, V
             return Result.fail("已经抢购完了~");
         }
         Long userId = UserHolder.getUser().getId();
-        synchronized (userId.toString().intern()){
+//        SimpleRedisLock redisLock = new SimpleRedisLock(stringRedisTemplate, "order:" + userId);
+//        boolean lock = redisLock.tryLock(LOCK_ORDER_TTL);
+        RLock redisLock = redissonClient.getLock("lock:order:" + userId);
+        boolean lock = redisLock.tryLock();
+        if(!lock){
+            return Result.fail("重复下单！");
+        }
+//            获取当前线程的代理对象，如果直接调用this，事务不会生效
+        try {
             IVoucherOrderService IVOS = (IVoucherOrderService)AopContext.currentProxy();
             return IVOS.createVoucherOrder(voucherId,userId);
+        } finally {
+            redisLock.unlock();// 释放锁
         }
+
     }
     @Transactional
     public Result createVoucherOrder(Long voucherId,Long userId){
