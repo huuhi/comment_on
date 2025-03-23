@@ -15,7 +15,5 @@ import zhijianhu.comment.dto.Result;
  */
 public interface IVoucherOrderService extends IService<VoucherOrder> {
 
-    Result createVoucherOrder(Long voucherId,Long userId);
-
     Result seckillVoucher(Long voucherId);
 }
