@@ -2,7 +2,7 @@ package zhijianhu.comment.service;
 
 import com.baomidou.mybatisplus.extension.service.IService;
 import zhijianhu.comment.domain.Follow;
-
+import zhijianhu.comment.dto.Result;
 
 
 /**
@@ -15,4 +15,9 @@ import zhijianhu.comment.domain.Follow;
  */
 public interface IFollowService extends IService<Follow> {
 
+    Result follow(Long followUserId, Boolean isFollow);
+
+    Result isFollow(Long followUserId);
+
+    Result followCommons(Long id);
 }
